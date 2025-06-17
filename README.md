@@ -2,13 +2,13 @@
 
 ## Overview
 
-This directory contains a complete monitoring and database solution for local development, featuring:
+This directory contains a complete monitoring and database solution for local development, designed with developer experience (DX) as the top priority. Features include:
 - **Grafana**: Visualization and dashboarding (http://localhost:3000)
 - **Prometheus**: Metrics collection and storage (http://localhost:9090)
 - **Loki**: Log aggregation system (http://localhost:3100)
 - **Promtail**: Log collector for Loki
 - **Jaeger**: Distributed tracing (http://localhost:16686)
-- **Azure SQL Edge**: SQL Server compatible database (localhost:1433)
+- **MS SQL 2022**: Enterprise-grade SQL Server database (localhost:1433)
 
 ## Quick Start
 
@@ -103,13 +103,15 @@ The following Docker volumes are created for data persistence:
   - gRPC (14250)
   - UDP (6831, 6832)
 
-### Azure SQL Edge (Port 1433)
+### MS SQL 2022 (Port 1433)
 
-- SQL Server compatible database
+- Enterprise-grade SQL Server database
+- Full SQL Server 2022 features and compatibility
 - Credentials:
   - User: sa
   - Password: YourStrong@Passw0rd (default)
 - Configurable via MSSQL_SA_PASSWORD environment variable
+- Includes all SQL Server 2022 features for local development
 
 ## Common Tasks
 
@@ -261,3 +263,121 @@ If data isn't persisting:
 docker volume ls
 docker volume inspect observability_grafana-data
 ```
+
+## Pre-configured Dashboards
+
+The following dashboards are pre-configured in Grafana for immediate use:
+
+1. **.NET Application Metrics**
+   - CPU and memory usage
+   - Request rates and latencies
+   - Exception tracking
+   - Garbage collection metrics
+
+2. **System Overview**
+   - Container resource usage
+   - Network I/O
+   - Disk operations
+   - Service health status
+
+3. **Database Performance**
+   - Query performance metrics
+   - Connection statistics
+   - Buffer cache hit ratios
+   - Transaction rates
+
+4. **Log Analysis**
+   - Application logs
+   - Error tracking
+   - Log patterns
+   - Correlation with metrics
+
+To access these dashboards:
+1. Open Grafana (http://localhost:3000)
+2. Navigate to Dashboards
+3. Browse the pre-configured dashboards
+
+## Developer Experience (DX) Tools
+
+We've added several tools to make working with the monitoring stack easier:
+
+### DX Helper Scripts
+
+We provide two versions of our DX helper script for maximum flexibility:
+
+#### Bash Version (Unix/Linux/macOS)
+```bash
+# Make the script executable
+chmod +x scripts/dx-tools.sh
+
+# Check health status of all services
+./scripts/dx-tools.sh status
+
+# View logs (all services or specific service)
+./scripts/dx-tools.sh logs
+./scripts/dx-tools.sh logs grafana
+
+# Restart services
+./scripts/dx-tools.sh restart
+./scripts/dx-tools.sh restart prometheus
+
+# Monitor resource usage
+./scripts/dx-tools.sh resources
+
+# Show help
+./scripts/dx-tools.sh help
+```
+
+#### PowerShell Version (Windows)
+```powershell
+# Check health status of all services
+.\scripts\dx-tools.ps1 status
+
+# View logs (all services or specific service)
+.\scripts\dx-tools.ps1 logs
+.\scripts\dx-tools.ps1 logs grafana
+
+# Restart services
+.\scripts\dx-tools.ps1 restart
+.\scripts\dx-tools.ps1 restart prometheus
+
+# Monitor resource usage
+.\scripts\dx-tools.ps1 resources
+
+# Show help
+.\scripts\dx-tools.ps1 help
+```
+
+Both scripts provide the same functionality:
+- Service health status checking
+- Log viewing with color coding
+- Service restart capabilities
+- Resource usage monitoring
+- Built-in help system
+
+### Health Status Dashboard
+
+A new health status dashboard is available in Grafana that provides:
+- Real-time health status of all services
+- Color-coded status indicators
+- Quick access to service metrics
+- Automatic refresh every 5 seconds
+
+Access it at: http://localhost:3000/d/health-status/health-status
+
+## Developer Experience (DX) Focus
+
+This monitoring stack is designed with developer experience as the primary focus:
+
+- **Zero Configuration**: Pre-configured dashboards and data sources
+- **Quick Start**: Single command to start all services
+- **Local Development**: All services run locally with minimal setup
+- **Persistent Data**: Data persists between restarts
+- **Easy Integration**: Simple configuration for your applications
+- **Comprehensive Monitoring**: Full observability stack in one place
+- **Modern Stack**: Latest versions of all components
+- **Resource Efficient**: Optimized for local development
+- **Health Monitoring**: Real-time health status dashboard
+- **DX Tools**: Convenient command-line tools for common operations
+- **Color-Coded Output**: Easy-to-read status indicators
+- **Quick Troubleshooting**: Built-in tools for service management
