@@ -156,18 +156,21 @@ services:
       - "com.docker.compose.service=jaeger"
   
   db:
-    container_name: azure-sql-edge
-    image: mcr.microsoft.com/azure-sql-edge
+    container_name: mssql-server
+    image: mcr.microsoft.com/mssql/server:2022-latest
     cap_add: [ 'SYS_PTRACE' ]
     ports:
       - "1433:1433"
     restart: always
     volumes: 
-      - azure-sql-edge-data:/var/opt/mssql
+      - mssql-data:/var/opt/mssql
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     environment:
       - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourStrong@Passw0rd}
       - ACCEPT_EULA=Y
       - MSSQL_PID=Developer
+      - MSSQL_MEMORY_LIMIT_MB=1024
+      - MSSQL_AGENT_ENABLED=true
     healthcheck:
       test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${MSSQL_SA_PASSWORD:-YourStrong@Passw0rd}" -Q "SELECT 1" || exit 1
       interval: 10s
@@ -188,5 +191,5 @@ volumes:
     name: prometheus-data
   grafana-data:
     name: grafana-data
-  azure-sql-edge-data:
-    name: azure-sql-edge-data
+  mssql-data:
+    name: mssql-data
