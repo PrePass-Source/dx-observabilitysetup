@@ -43,6 +43,9 @@ services:
     image: grafana/loki:latest
     ports:
       - "3100:3100"
+    volumes:
+      - ./loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - monitoring
@@ -65,6 +68,9 @@ services:
     image: grafana/promtail:latest
     volumes:
       - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+      - promtail-positions:/tmp
     command: -config.file=/etc/promtail/config.yml
     networks:
       - monitoring
@@ -98,6 +104,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
       - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards,traces,explore,correlations,dataConnections,queryLibrary,alerting,unifiedAlerting
     ports:
       - "3000:3000"
     networks:
@@ -132,14 +139,18 @@ services:
       - "14250:14250"  # Jaeger gRPC
       - "14268:14268"  # Jaeger HTTP
       - "14269:14269"  # Jaeger remote sampling
+    volumes:
+      - jaeger-data:/tmp
     networks:
       - monitoring
     restart: unless-stopped
     environment:
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
-      - SPAN_STORAGE_TYPE=memory
+      - SPAN_STORAGE_TYPE=badger
       - COLLECTOR_OTLP_ENABLED=true
       - COLLECTOR_JAEGER_HOST=jaeger
+      - SPAN_STORAGE_BADGER_DIRECTORY_VALUE=/tmp/badger/data
+      - SPAN_STORAGE_BADGER_DIRECTORY_KEY=/tmp/badger/key
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:16686/api/health"]
       interval: 10s
@@ -193,3 +204,9 @@ volumes:
     name: grafana-data
   mssql-data:
     name: mssql-data
+  loki-data:
+    name: loki-data
+  promtail-positions:
+    name: promtail-positions
+  jaeger-data:
+    name: jaeger-data
