@@ -7,7 +7,7 @@ This directory contains a complete monitoring and database solution for local de
 - **Prometheus**: Metrics collection and storage (http://localhost:9090)
 - **Loki**: Log aggregation system (http://localhost:3100)
 - **Promtail**: Log collector for Loki
-- **Jaeger**: Distributed tracing (http://localhost:16686)
+- **Tempo**: Distributed tracing backend (http://localhost:3200)
 - **MS SQL 2022**: Enterprise-grade SQL Server database (localhost:1433)
 
 ## Quick Start
@@ -25,7 +25,7 @@ docker-compose ps
 # 4. Access Services
 - Grafana: http://localhost:3000 (Default credentials: admin/admin)
 - Prometheus: http://localhost:9090
-- Jaeger UI: http://localhost:16686
+- Tempo: http://localhost:3200
 - SQL Server: localhost:1433 (User: sa, Password: $MSSQL_SA_PASSWORD)
 ```
 
@@ -36,17 +36,18 @@ observability/
 ├── docker-compose.yaml          # Container orchestration
 ├── grafana/
 │   ├── dashboards/             # Pre-configured dashboards
-│   │   └── dotnet-dashboard.json
 │   ├── provisioning/           # Grafana auto-configuration
-│   │   ├── dashboards/
-│   │   │   └── default.yml
-│   │   └── datasources/
-│   │       └── ds.yaml
-│   └── grafana.ini            # Grafana settings
+│   └── grafana.ini             # Grafana settings
 ├── prometheus/
-│   └── prometheus.yaml        # Prometheus configuration
-└── loki/
-    └── loki-config.yaml      # Loki configuration
+│   └── prometheus.yaml         # Prometheus configuration
+├── loki/
+│   └── local-config.yaml       # Loki configuration
+├── promtail/
+│   └── config.yml              # Promtail configuration
+├── tempo/
+│   └── tempo.yaml              # Tempo configuration
+└── scripts/
+    └── init-db.sh
 ```
 
 ## Networks
@@ -60,7 +61,10 @@ The stack uses two Docker networks:
 The following Docker volumes are created for data persistence:
 - `prometheus-data`: Prometheus time series data
 - `grafana-data`: Grafana configurations and data
-- `azure-sql-edge-data`: SQL Server database files
+- `mssql-data`: SQL Server database files
+- `loki-data`: Loki log storage
+- `promtail-positions`: Promtail log positions
+- `tempo-data`: Tempo trace storage
 
 ## Component Details
 
@@ -72,7 +76,7 @@ The following Docker volumes are created for data persistence:
 - Configured data sources:
   - Prometheus for metrics
   - Loki for logs
-  - Jaeger for traces
+  - Tempo for traces
 
 ### Prometheus (Port 9090)
 
@@ -94,14 +98,12 @@ The following Docker volumes are created for data persistence:
 - Automatically collects container logs
 - Forwards logs to Loki for storage
 
-### Jaeger (Multiple Ports)
+### Tempo (Port 3200)
 
-- Distributed tracing system
-- UI available at http://localhost:16686
-- Collects traces via:
-  - HTTP (14268)
-  - gRPC (14250)
-  - UDP (6831, 6832)
+- Distributed tracing backend
+- Receives traces in Jaeger, Zipkin, and OTLP formats
+- Integrated with Grafana for trace visualization
+- Persistent storage for traces
 
 ### MS SQL 2022 (Port 1433)
 
@@ -171,7 +173,7 @@ docker-compose logs prometheus
 
 ```bash
 # Check container status
-docker ps --format "table {% raw %}{{.Names}}{% endraw %}\t{% raw %}{{.Status}}{% endraw %}\t{% raw %}{{.Health}}{% endraw %}"
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Health}}"
 
 # Alternative: Use docker compose
 docker compose ps
@@ -208,17 +210,29 @@ Configure in `appsettings.json`:
 }
 ```
 
-### 3. Tracing (Jaeger)
+### 3. Tracing (Tempo)
 
-Configure in your service:
+Configure your service to send traces to Tempo. Tempo supports Jaeger, Zipkin, and OTLP protocols. For example, with OpenTelemetry and Jaeger exporter:
 
 ```csharp
 services.AddOpenTelemetryTracing(builder =>
 {
     builder.AddJaegerExporter(o =>
     {
-        o.AgentHost = "localhost";
-        o.AgentPort = 6831;
+        o.AgentHost = "tempo"; // Docker Compose service name
+        o.AgentPort = 6831;    // Jaeger UDP port
+    });
+});
+```
+
+Or for OTLP:
+
+```csharp
+services.AddOpenTelemetryTracing(builder =>
+{
+    builder.AddOtlpExporter(o =>
+    {
+        o.Endpoint = new Uri("http://tempo:4317"); // OTLP gRPC endpoint
     });
 });
 ```
@@ -228,7 +242,7 @@ services.AddOpenTelemetryTracing(builder =>
 - [Grafana Documentation](https://grafana.com/docs/)
 - [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
 - [Loki Documentation](https://grafana.com/docs/loki/latest/)
-- [Jaeger Documentation](https://www.jaegertracing.io/docs/1.41/)
+- [Tempo Documentation](https://grafana.com/docs/tempo/latest/)
 
 ## Common Issues and Solutions
 
@@ -249,19 +263,6 @@ If services can't communicate:
 ```bash
 # Verify network
 docker network inspect observability_monitoring
-
-# Check container connectivity
-docker-compose exec grafana ping prometheus
-```
-
-### Storage Issues
-
-If data isn't persisting:
-
-```bash
-# Check volume status
-docker volume ls
-docker volume inspect observability_grafana-data
 ```
 
 ## Pre-configured Dashboards
@@ -368,7 +369,6 @@ Access it at: http://localhost:3000/d/health-status/health-status
 ## Developer Experience (DX) Focus
 
 This monitoring stack is designed with developer experience as the primary focus:
-
 - **Zero Configuration**: Pre-configured dashboards and data sources
 - **Quick Start**: Single command to start all services
 - **Local Development**: All services run locally with minimal setup

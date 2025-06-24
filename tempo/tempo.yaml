@@ -1,0 +1,38 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9095
+
+distributor:
+  receivers:
+    jaeger:
+      protocols:
+        thrift_http:
+        thrift_compact:
+        thrift_binary:
+        grpc:
+    zipkin:
+    otlp:
+      protocols:
+        grpc:
+        http:
+
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    final_sleep: 0s
+
+compactor:
+  compaction:
+    compacted_block_retention: 24h
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces

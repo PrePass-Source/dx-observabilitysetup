@@ -129,30 +129,25 @@ services:
       - "com.docker.compose.project=observability"
       - "com.docker.compose.service=grafana"
 
-  jaeger:
-    image: jaegertracing/jaeger:latest
+  tempo:
+    image: grafana/tempo:latest
+    environment:
+      TEMPO_TARGET: otelcol
+    command: -config.file=/etc/tempo/tempo.yaml
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
     ports:
-      - "6831:6831/udp"  # UDP agent\
-      - "16686:16686"  # Jaeger UI
+      - "3200:3200"    # Tempo HTTP API
       - "4317:4317"    # OTLP gRPC
       - "4318:4318"    # OTLP HTTP
-      - "14250:14250"  # Jaeger gRPC
       - "14268:14268"  # Jaeger HTTP
-      - "14269:14269"  # Jaeger remote sampling
-    volumes:
-      - jaeger-data:/tmp
+      - "6831:6831/udp" # Jaeger UDP
+      - "9411:9411"    # Zipkin
     networks:
       - monitoring
-    restart: unless-stopped
-    environment:
-      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
-      - SPAN_STORAGE_TYPE=badger
-      - COLLECTOR_OTLP_ENABLED=true
-      - COLLECTOR_JAEGER_HOST=jaeger
-      - SPAN_STORAGE_BADGER_DIRECTORY_VALUE=/tmp/badger/data
-      - SPAN_STORAGE_BADGER_DIRECTORY_KEY=/tmp/badger/key
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:16686/api/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3200/ready"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -164,8 +159,8 @@ services:
           memory: 256M
     labels:
       - "com.docker.compose.project=observability"
-      - "com.docker.compose.service=jaeger"
-  
+      - "com.docker.compose.service=tempo"
+
   db:
     container_name: mssql-server
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -208,5 +203,5 @@ volumes:
     name: loki-data
   promtail-positions:
     name: promtail-positions
-  jaeger-data:
-    name: jaeger-data
+  tempo-data:
+    name: tempo-data
