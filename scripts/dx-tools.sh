@@ -24,6 +24,7 @@ status() {
     echo "------------------------"
     check_service_health loki
     check_service_health mimir
+    check_service_health otel-collector
     check_service_health grafana
     check_service_health tempo
     check_service_health db
@@ -69,7 +70,7 @@ show_help() {
     echo "  resources           Show resource usage for all services"
     echo "  help                Show this help message"
     echo ""
-    echo "Available services: loki, mimir, grafana, tempo, db"
+    echo "Available services: loki, mimir, otel-collector, grafana, tempo, db"
 }
 
 # Main command handling

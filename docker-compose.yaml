@@ -12,7 +12,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     networks:
@@ -33,12 +33,10 @@ services:
       - "com.docker.compose.service=loki"
 
   mimir:
-    image: grafana/mimir:latest
+    image: grafana/mimir:2.16.0
     ports:
       - "9009:9009"    # Mimir HTTP API
       - "9095:9095"    # Mimir gRPC API
-      - "4317:4317"    # OTLP gRPC
-      - "4318:4318"    # OTLP HTTP
     volumes:
       - ./mimir/mimir.yaml:/etc/mimir/mimir.yaml:ro
       - mimir-data:/data
@@ -60,6 +58,28 @@ services:
       - "com.docker.compose.project=observability"
       - "com.docker.compose.service=mimir"
 
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    ports:
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otel-collector/config.yaml:ro
+    command: --config /etc/otel-collector/config.yaml
+    networks:
+      - monitoring
+    depends_on:
+      - mimir
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    labels:
+      - "com.docker.compose.project=observability"
+      - "com.docker.compose.service=otel-collector"
+
   promtail:
     image: grafana/promtail:latest
     volumes:
@@ -71,8 +91,7 @@ services:
     networks:
       - monitoring
     depends_on:
-      loki:
-        condition: service_healthy
+      - loki
     deploy:
       resources:
         limits:
@@ -106,10 +125,8 @@ services:
     networks:
       - monitoring
     depends_on:
-      loki:
-        condition: service_healthy
-      mimir:
-        condition: service_healthy
+      - loki
+      - mimir
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 10s
