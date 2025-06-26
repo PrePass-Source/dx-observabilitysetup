@@ -22,10 +22,10 @@ check_service_health() {
 status() {
     echo "Checking service statuses..."
     echo "------------------------"
-    check_service_health prometheus
     check_service_health loki
+    check_service_health mimir
     check_service_health grafana
-    check_service_health jaeger
+    check_service_health tempo
     check_service_health db
 }
 
@@ -68,6 +68,8 @@ show_help() {
     echo "  restart [service]   Restart all services or specific service"
     echo "  resources           Show resource usage for all services"
     echo "  help                Show this help message"
+    echo ""
+    echo "Available services: loki, mimir, grafana, tempo, db"
 }
 
 # Main command handling

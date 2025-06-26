@@ -4,7 +4,7 @@
 
 This directory contains a complete monitoring and database solution for local development, designed with developer experience (DX) as the top priority. Features include:
 - **Grafana**: Visualization and dashboarding (http://localhost:3000)
-- **Prometheus**: Metrics collection and storage (http://localhost:9090)
+- **Grafana Mimir**: Metrics backend with OTLP support (http://localhost:9009)
 - **Loki**: Log aggregation system (http://localhost:3100)
 - **Promtail**: Log collector for Loki
 - **Tempo**: Distributed tracing backend (http://localhost:3200)
@@ -24,7 +24,7 @@ docker-compose ps
 
 # 4. Access Services
 - Grafana: http://localhost:3000 (Default credentials: admin/admin)
-- Prometheus: http://localhost:9090
+- Mimir: http://localhost:9009
 - Tempo: http://localhost:3200
 - SQL Server: localhost:1433 (User: sa, Password: $MSSQL_SA_PASSWORD)
 ```
@@ -38,8 +38,8 @@ observability/
 │   ├── dashboards/             # Pre-configured dashboards
 │   ├── provisioning/           # Grafana auto-configuration
 │   └── grafana.ini             # Grafana settings
-├── prometheus/
-│   └── prometheus.yaml         # Prometheus configuration
+├── mimir/
+│   └── mimir.yaml              # Mimir configuration
 ├── loki/
 │   └── local-config.yaml       # Loki configuration
 ├── promtail/
@@ -59,9 +59,9 @@ The stack uses two Docker networks:
 ## Persistent Storage
 
 The following Docker volumes are created for data persistence:
-- `prometheus-data`: Prometheus time series data
 - `grafana-data`: Grafana configurations and data
 - `mssql-data`: SQL Server database files
+- `mimir-data`: Mimir metrics storage
 - `loki-data`: Loki log storage
 - `promtail-positions`: Promtail log positions
 - `tempo-data`: Tempo trace storage
@@ -71,19 +71,21 @@ The following Docker volumes are created for data persistence:
 ### Grafana (Port 3000)
 
 - Main visualization platform
-- Pre-configured dashboards for .NET metrics
+- Pre-configured dashboards for application monitoring
 - Anonymous access enabled for development
 - Configured data sources:
-  - Prometheus for metrics
+  - Mimir for metrics (via OTLP)
   - Loki for logs
   - Tempo for traces
 
-### Prometheus (Port 9090)
+### Grafana Mimir (Port 9009)
 
-- Metrics collection and storage
-- Scrapes metrics every 15 seconds
-- Configured to discover your service at `host.docker.internal:8080`
-- Retention: 7 days, max 5GB (configurable in docker-compose.yaml)
+- High-performance metrics backend
+- Drop-in Prometheus replacement
+- Supports OpenTelemetry Protocol (OTLP) for metrics ingestion
+- Optimized for modern observability stacks
+- Local filesystem storage for development
+- 7-day retention by default
 
 ### Loki (Port 3100)
 
@@ -125,7 +127,7 @@ docker-compose logs
 
 # View logs from a specific service
 docker-compose logs grafana
-docker-compose logs prometheus
+docker-compose logs mimir
 ```
 
 ### Restarting Services
@@ -159,14 +161,24 @@ docker volume ls
 docker volume inspect observability_grafana-data
 ```
 
-#### Prometheus Issues
+#### Mimir Issues
 
 ```bash
-# Check if Prometheus can reach your service
-curl http://localhost:9090/targets
+# Check Mimir logs
+docker-compose logs mimir
 
-# View Prometheus logs
-docker-compose logs prometheus
+# Verify Mimir is responding
+curl http://localhost:9009/ready
+```
+
+#### Loki Issues
+
+```bash
+# Check Loki logs
+docker-compose logs loki
+
+# Verify Loki is responding
+curl http://localhost:3100/ready
 ```
 
 #### Container Issues
@@ -184,11 +196,21 @@ docker compose ps --format json | jq
 
 ## Integration with Your Service
 
-### 1. Metrics (Prometheus)
+### 1. Metrics (Mimir via OTLP)
 
-Add to your service's `Program.cs`:
+Configure your service to send metrics to Mimir using the OpenTelemetry Protocol (OTLP). Add to your service's `Program.cs`:
+
 ```csharp
-app.UseMetricServer();  // Exposes /metrics endpoint
+// For .NET applications using OpenTelemetry
+services.AddOpenTelemetry()
+    .WithMetrics(builder =>
+    {
+        builder.AddMeter("YourApp.Metrics");
+        builder.AddOtlpExporter(o =>
+        {
+            o.Endpoint = new Uri("http://localhost:4318"); // OTLP HTTP endpoint
+        });
+    });
 ```
 
 ### 2. Logging (Loki)
@@ -240,9 +262,10 @@ services.AddOpenTelemetryTracing(builder =>
 ## Additional Resources
 
 - [Grafana Documentation](https://grafana.com/docs/)
-- [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
+- [Grafana Mimir Documentation](https://grafana.com/docs/mimir/latest/)
 - [Loki Documentation](https://grafana.com/docs/loki/latest/)
 - [Tempo Documentation](https://grafana.com/docs/tempo/latest/)
+- [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 
 ## Common Issues and Solutions
 
@@ -269,23 +292,22 @@ docker network inspect observability_monitoring
 
 The following dashboards are pre-configured in Grafana for immediate use:
 
-1. **.NET Application Metrics**
-   - CPU and memory usage
-   - Request rates and latencies
-   - Exception tracking
-   - Garbage collection metrics
+1. **Service Health Status**
+   - Real-time health status of all services
+   - Color-coded status indicators
+   - Service health over time
 
-2. **System Overview**
+2. **.NET Application Metrics**
+   - HTTP request rates and latencies
+   - CPU and memory usage
+   - Process-level metrics
+   - System resource monitoring
+
+3. **System Overview**
    - Container resource usage
    - Network I/O
    - Disk operations
    - Service health status
-
-3. **Database Performance**
-   - Query performance metrics
-   - Connection statistics
-   - Buffer cache hit ratios
-   - Transaction rates
 
 4. **Log Analysis**
    - Application logs
@@ -320,7 +342,7 @@ chmod +x scripts/dx-tools.sh
 
 # Restart services
 ./scripts/dx-tools.sh restart
-./scripts/dx-tools.sh restart prometheus
+./scripts/dx-tools.sh restart mimir
 
 # Monitor resource usage
 ./scripts/dx-tools.sh resources
@@ -340,7 +362,7 @@ chmod +x scripts/dx-tools.sh
 
 # Restart services
 .\scripts\dx-tools.ps1 restart
-.\scripts\dx-tools.ps1 restart prometheus
+.\scripts\dx-tools.ps1 restart mimir
 
 # Monitor resource usage
 .\scripts\dx-tools.ps1 resources
@@ -355,16 +377,6 @@ Both scripts provide the same functionality:
 - Service restart capabilities
 - Resource usage monitoring
 - Built-in help system
-
-### Health Status Dashboard
-
-A new health status dashboard is available in Grafana that provides:
-- Real-time health status of all services
-- Color-coded status indicators
-- Quick access to service metrics
-- Automatic refresh every 5 seconds
-
-Access it at: http://localhost:3000/d/health-status/health-status
 
 ## Developer Experience (DX) Focus
 
@@ -381,3 +393,5 @@ This monitoring stack is designed with developer experience as the primary focus
 - **DX Tools**: Convenient command-line tools for common operations
 - **Color-Coded Output**: Easy-to-read status indicators
 - **Quick Troubleshooting**: Built-in tools for service management
+- **OTLP Support**: Modern OpenTelemetry Protocol for metrics and traces
+- **Hybrid Architecture**: Mimir for metrics, Loki for logs, Tempo for traces

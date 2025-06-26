@@ -21,10 +21,10 @@ function Check-ServiceHealth {
 function Show-Status {
     Write-Host "Checking service statuses..."
     Write-Host "------------------------"
-    Check-ServiceHealth "prometheus"
     Check-ServiceHealth "loki"
+    Check-ServiceHealth "mimir"
     Check-ServiceHealth "grafana"
-    Check-ServiceHealth "jaeger"
+    Check-ServiceHealth "tempo"
     Check-ServiceHealth "db"
 }
 
@@ -74,10 +74,12 @@ function Show-Help {
     Write-Host "  resources           Show resource usage for all services"
     Write-Host "  help                Show this help message"
     Write-Host ""
+    Write-Host "Available services: loki, mimir, grafana, tempo, db"
+    Write-Host ""
     Write-Host "Examples:"
     Write-Host "  .\dx-tools.ps1 status"
     Write-Host "  .\dx-tools.ps1 logs grafana"
-    Write-Host "  .\dx-tools.ps1 restart prometheus"
+    Write-Host "  .\dx-tools.ps1 restart loki"
     Write-Host "  .\dx-tools.ps1 resources"
 }
 

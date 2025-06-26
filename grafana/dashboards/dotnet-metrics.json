@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "fieldConfig": {
         "defaults": {
@@ -98,7 +98,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "mimir"
           },
           "expr": "rate(http_requests_received_total{job=\"webapi\"}[1m])",
           "legendFormat": "{{method}} {{path}}",
@@ -111,7 +111,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "fieldConfig": {
         "defaults": {
@@ -185,7 +185,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "mimir"
           },
           "expr": "rate(http_request_duration_seconds_sum{job=\"webapi\"}[1m]) / rate(http_request_duration_seconds_count{job=\"webapi\"}[1m])",
           "legendFormat": "{{method}} {{path}}",
@@ -205,13 +205,13 @@
       },
       "id": 13,
       "panels": [],
-      "title": "NServiceBus Metrics",
+      "title": "System Metrics",
       "type": "row"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "fieldConfig": {
         "defaults": {
@@ -257,7 +257,8 @@
                 "value": null
               }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -284,20 +285,20 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "mimir"
           },
-          "expr": "nservicebus_message_processing_time_seconds_sum{job=\"nservicebus\"} / nservicebus_message_processing_time_seconds_count{job=\"nservicebus\"}",
-          "legendFormat": "{{message_type}}",
+          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{instance}}",
           "refId": "A"
         }
       ],
-      "title": "Message Processing Time",
+      "title": "CPU Usage",
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "mimir"
       },
       "fieldConfig": {
         "defaults": {
@@ -343,7 +344,8 @@
                 "value": null
               }
             ]
-          }
+          },
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -370,14 +372,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "mimir"
           },
-          "expr": "nservicebus_queue_length{job=\"nservicebus\"}",
-          "legendFormat": "{{endpoint}}",
+          "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes",
+          "legendFormat": "{{instance}}",
           "refId": "A"
         }
       ],
-      "title": "Queue Length",
+      "title": "Memory Usage",
       "type": "timeseries"
     },
     {
@@ -390,13 +392,13 @@
       },
       "id": 14,
       "panels": [],
-      "title": "Logging & Tracing",
+      "title": "Application Metrics",
       "type": "row"
     },
     {
       "datasource": {
-        "type": "loki",
-        "uid": "loki"
+        "type": "prometheus",
+        "uid": "mimir"
       },
       "fieldConfig": {
         "defaults": {
@@ -409,8 +411,8 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 100,
+            "drawStyle": "line",
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -418,7 +420,7 @@
               "viz": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -427,7 +429,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "normal"
+              "mode": "none"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -456,8 +458,8 @@
       "id": 5,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -469,21 +471,70 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
-            "uid": "loki"
+            "type": "prometheus",
+            "uid": "mimir"
           },
-          "expr": "sum by(level) (count_over_time({job=\"webapi\"} | json | __error__=\"\" [5m]))",
-          "legendFormat": "{{level}}",
+          "expr": "rate(process_cpu_seconds_total{job=\"webapi\"}[1m]) * 100",
+          "legendFormat": "{{instance}}",
           "refId": "A"
         }
       ],
-      "title": "Log Volume by Level",
+      "title": "Process CPU Usage",
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "loki",
-        "uid": "loki"
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -493,70 +544,47 @@
       },
       "id": 6,
       "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": true,
-        "showCommonLabels": false,
-        "showLabels": false,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
       "targets": [
         {
           "datasource": {
-            "type": "loki",
-            "uid": "loki"
+            "type": "prometheus",
+            "uid": "mimir"
           },
-          "expr": "{job=\"webapi\"} | json | level=~\"error|warn\" | line_format \"{{.level}} - {{.message}}\"",
-          "limit": 100,
+          "expr": "process_resident_memory_bytes{job=\"webapi\"}",
+          "legendFormat": "{{instance}}",
           "refId": "A"
         }
       ],
-      "title": "Recent Error & Warning Logs",
-      "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "jaeger",
-        "uid": "jaeger"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 27
-      },
-      "id": 7,
-      "targets": [
-        {
-          "datasource": {
-            "type": "jaeger",
-            "uid": "jaeger"
-          },
-          "queryType": "search",
-          "refId": "A",
-          "service": "webapi"
-        }
-      ],
-      "title": "Distributed Traces",
-      "type": "traces"
+      "title": "Process Memory Usage",
+      "type": "timeseries"
     }
   ],
-  "refresh": "5s",
+  "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["dotnet", "webapi", "nservicebus"],
+  "tags": ["dotnet", "metrics", "mimir"],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": ".NET Application Dashboard",
+  "title": ".NET Application Metrics (Mimir)",
+  "uid": "dotnet-metrics-mimir",
   "version": 1,
   "weekStart": ""
-}
+} 
