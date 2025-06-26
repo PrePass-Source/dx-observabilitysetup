@@ -8,6 +8,7 @@ This directory contains a complete monitoring and database solution for local de
 - **Loki**: Log aggregation system (http://localhost:3100)
 - **Promtail**: Log collector for Loki
 - **Tempo**: Distributed tracing backend (http://localhost:3200)
+- **OTEL Collector**: OpenTelemetry data collection and routing
 - **MS SQL 2022**: Enterprise-grade SQL Server database (localhost:1433)
 
 ## Quick Start
@@ -29,6 +30,17 @@ docker-compose ps
 - SQL Server: localhost:1433 (User: sa, Password: $MSSQL_SA_PASSWORD)
 ```
 
+## Quick Reference
+
+| Service | Port | URL | Purpose |
+|---------|------|-----|---------|
+| Grafana | 3000 | http://localhost:3000 | Dashboards & Visualization |
+| Mimir | 9009 | http://localhost:9009 | Metrics Storage |
+| Loki | 3100 | http://localhost:3100 | Log Aggregation |
+| Tempo | 3200 | http://localhost:3200 | Distributed Tracing |
+| OTEL Collector | 4317/4318 | - | Data Collection |
+| SQL Server | 1433 | localhost:1433 | Database |
+
 ## Directory Structure
 
 ```
@@ -40,21 +52,23 @@ observability/
 │   └── grafana.ini             # Grafana settings
 ├── mimir/
 │   └── mimir.yaml              # Mimir configuration
-├── loki/
-│   └── local-config.yaml       # Loki configuration
+├── loki-config.yaml            # Loki configuration
 ├── promtail/
 │   └── config.yml              # Promtail configuration
 ├── tempo/
 │   └── tempo.yaml              # Tempo configuration
+├── otel-collector/
+│   └── config.yaml             # OTEL Collector configuration
 └── scripts/
-    └── init-db.sh
+    ├── dx-tools.sh             # Bash helper script
+    ├── dx-tools.ps1            # PowerShell helper script
+    └── init-db.sh              # Database initialization
 ```
 
 ## Networks
 
-The stack uses two Docker networks:
-- `monitoring`: For observability services communication
-- `database`: For database-related services
+The stack uses a single Docker network:
+- `monitoring`: For all observability services communication
 
 ## Persistent Storage
 
@@ -107,6 +121,13 @@ The following Docker volumes are created for data persistence:
 - Integrated with Grafana for trace visualization
 - Persistent storage for traces
 
+### OTEL Collector
+
+- OpenTelemetry data collection and routing
+- Receives OTLP data on ports 4317 (gRPC) and 4318 (HTTP)
+- Routes metrics to Mimir, traces to Tempo
+- Provides a single endpoint for your applications
+
 ### MS SQL 2022 (Port 1433)
 
 - Enterprise-grade SQL Server database
@@ -128,6 +149,9 @@ docker-compose logs
 # View logs from a specific service
 docker-compose logs grafana
 docker-compose logs mimir
+
+# Follow logs in real-time
+docker-compose logs -f grafana
 ```
 
 ### Restarting Services
@@ -138,6 +162,9 @@ docker-compose restart
 
 # Restart single service
 docker-compose restart grafana
+
+# Stop and start fresh
+docker-compose down && docker-compose up -d
 ```
 
 ### Updating Configuration
@@ -148,50 +175,17 @@ docker-compose restart grafana
 docker-compose restart <service-name>
 ```
 
-### Troubleshooting
-
-#### Grafana Issues
+### Health Checks
 
 ```bash
-# Check Grafana logs
-docker-compose logs grafana
+# Check all service health
+docker-compose ps
 
-# Verify volumes and permissions
-docker volume ls
-docker volume inspect observability_grafana-data
-```
-
-#### Mimir Issues
-
-```bash
-# Check Mimir logs
-docker-compose logs mimir
-
-# Verify Mimir is responding
-curl http://localhost:9009/ready
-```
-
-#### Loki Issues
-
-```bash
-# Check Loki logs
-docker-compose logs loki
-
-# Verify Loki is responding
-curl http://localhost:3100/ready
-```
-
-#### Container Issues
-
-```bash
-# Check container status
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Health}}"
-
-# Alternative: Use docker compose
-docker compose ps
-
-# For detailed health checks
-docker compose ps --format json | jq
+# Test individual service endpoints
+curl http://localhost:3000/api/health  # Grafana
+curl http://localhost:9009/ready       # Mimir
+curl http://localhost:3100/ready       # Loki
+curl http://localhost:3200/ready       # Tempo
 ```
 
 ## Integration with Your Service
@@ -241,8 +235,8 @@ services.AddOpenTelemetryTracing(builder =>
 {
     builder.AddJaegerExporter(o =>
     {
-        o.AgentHost = "tempo"; // Docker Compose service name
-        o.AgentPort = 6831;    // Jaeger UDP port
+        o.AgentHost = "localhost"; // Use localhost for local development
+        o.AgentPort = 6831;        // Jaeger UDP port
     });
 });
 ```
@@ -254,9 +248,41 @@ services.AddOpenTelemetryTracing(builder =>
 {
     builder.AddOtlpExporter(o =>
     {
-        o.Endpoint = new Uri("http://tempo:4317"); // OTLP gRPC endpoint
+        o.Endpoint = new Uri("http://localhost:4318"); // OTLP HTTP endpoint
     });
 });
+```
+
+### 4. Complete OpenTelemetry Setup
+
+For a complete setup with all three signals:
+
+```csharp
+services.AddOpenTelemetry()
+    .WithMetrics(builder =>
+    {
+        builder.AddMeter("YourApp.Metrics");
+        builder.AddOtlpExporter(o =>
+        {
+            o.Endpoint = new Uri("http://localhost:4318");
+        });
+    })
+    .WithTracing(builder =>
+    {
+        builder.AddAspNetCoreInstrumentation();
+        builder.AddHttpClientInstrumentation();
+        builder.AddOtlpExporter(o =>
+        {
+            o.Endpoint = new Uri("http://localhost:4318");
+        });
+    })
+    .WithLogging(builder =>
+    {
+        builder.AddOtlpExporter(o =>
+        {
+            o.Endpoint = new Uri("http://localhost:4318");
+        });
+    });
 ```
 
 ## Additional Resources
@@ -267,9 +293,24 @@ services.AddOpenTelemetryTracing(builder =>
 - [Tempo Documentation](https://grafana.com/docs/tempo/latest/)
 - [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 
-## Common Issues and Solutions
+## Troubleshooting
 
-### Permission Issues
+### Common Issues and Solutions
+
+#### Services Not Starting
+
+```bash
+# Check if ports are already in use
+lsof -i :3000  # Grafana
+lsof -i :9009  # Mimir
+lsof -i :3100  # Loki
+
+# Check Docker resources
+docker system df
+docker system prune -f  # Clean up unused resources
+```
+
+#### Permission Issues
 
 If you encounter permission issues:
 
@@ -279,13 +320,92 @@ sudo chown -R 472:472 grafana/
 chmod -R 755 grafana/
 ```
 
-### Network Issues
+#### Network Issues
 
 If services can't communicate:
 
 ```bash
 # Verify network
 docker network inspect observability_monitoring
+
+# Check service connectivity
+docker-compose exec grafana wget -q -O- http://mimir:9009/ready
+```
+
+#### Health Check Failures
+
+```bash
+# Check specific service health
+docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
+
+# View detailed health check logs
+docker inspect <container-name> | jq '.[0].State.Health'
+```
+
+#### Data Persistence Issues
+
+```bash
+# Check volume mounts
+docker volume ls | grep observability
+
+# Inspect volume contents
+docker run --rm -v observability_grafana-data:/data alpine ls -la /data
+```
+
+### Service-Specific Troubleshooting
+
+#### Grafana Issues
+
+```bash
+# Check Grafana logs
+docker-compose logs grafana
+
+# Verify volumes and permissions
+docker volume ls
+docker volume inspect observability_grafana-data
+
+# Reset Grafana data (if needed)
+docker-compose down
+docker volume rm observability_grafana-data
+docker-compose up -d
+```
+
+#### Mimir Issues
+
+```bash
+# Check Mimir logs
+docker-compose logs mimir
+
+# Verify Mimir is responding
+curl http://localhost:9009/ready
+
+# Check Mimir metrics
+curl http://localhost:9009/metrics
+```
+
+#### Loki Issues
+
+```bash
+# Check Loki logs
+docker-compose logs loki
+
+# Verify Loki is responding
+curl http://localhost:3100/ready
+
+# Test log ingestion
+curl -v -H "Content-Type: application/json" -XPOST -s "http://localhost:3100/loki/api/v1/push" --data-raw '{"streams": [{"stream": {"foo": "bar"}, "values": [["'$(date +%s%N)'", "hello world"]]}]}'
+```
+
+#### OTEL Collector Issues
+
+```bash
+# Check OTEL Collector logs
+docker-compose logs otel-collector
+
+# Test OTLP endpoint
+curl -X POST http://localhost:4318/v1/metrics \
+  -H "Content-Type: application/json" \
+  -d '{"resourceMetrics":[]}'
 ```
 
 ## Pre-configured Dashboards
@@ -378,6 +498,31 @@ Both scripts provide the same functionality:
 - Resource usage monitoring
 - Built-in help system
 
+### Quick Commands Reference
+
+```bash
+# Start everything
+docker-compose up -d
+
+# Stop everything
+docker-compose down
+
+# View status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+
+# Restart specific service
+docker-compose restart <service>
+
+# Check health
+curl http://localhost:3000/api/health
+
+# Access Grafana
+open http://localhost:3000
+```
+
 ## Developer Experience (DX) Focus
 
 This monitoring stack is designed with developer experience as the primary focus:
@@ -395,3 +540,4 @@ This monitoring stack is designed with developer experience as the primary focus
 - **Quick Troubleshooting**: Built-in tools for service management
 - **OTLP Support**: Modern OpenTelemetry Protocol for metrics and traces
 - **Hybrid Architecture**: Mimir for metrics, Loki for logs, Tempo for traces
+- **Complete Observability**: Metrics, logs, and traces in one stack
