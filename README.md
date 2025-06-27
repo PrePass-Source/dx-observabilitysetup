@@ -1,5 +1,12 @@
 # Local Monitoring Stack
 
+##  🔥 <span style="color:red">Important Note</span> 🔥
+
+The `dx-observability` local stack is developed for, but is not limited to, use with the [PrePass.Observability Library](https://cvo-devops.visualstudio.com/Architecture/_git/PrePass.Observability). 
+
+The package can be found here, [PrePass.Observability Nuget Pacakage](https://cvo-devops.visualstudio.com/Architecture/_artifacts/feed/PrePass.Common/NuGet/PrePass.Observability/overview)
+
+
 ## Overview
 
 This directory contains a complete monitoring and database solution for local development, designed with developer experience (DX) as the top priority. Features include:
@@ -15,7 +22,16 @@ This directory contains a complete monitoring and database solution for local de
 
 ```bash
 # 1. Set up environment variables (optional - defaults provided)
-export MSSQL_SA_PASSWORD=YourStrong@Passw0rd  # Default SQL password if not set
+# Set the SQL Server password environment variable (choose the command for your OS):
+
+# macOS/Linux (bash/zsh):
+export MSSQL_SA_PASSWORD=YourStrong@Passw0rd
+
+# Windows (PowerShell):
+$env:MSSQL_SA_PASSWORD="YourStrong@Passw0rd"
+
+# Windows (cmd.exe):
+set MSSQL_SA_PASSWORD=YourStrong@Passw0rd
 
 # 2. Start the monitoring stack
 docker-compose up -d
@@ -196,13 +212,15 @@ Configure your service to send metrics to Mimir using the OpenTelemetry Protocol
 
 ```csharp
 // For .NET applications using OpenTelemetry
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol
+
 services.AddOpenTelemetry()
     .WithMetrics(builder =>
     {
         builder.AddMeter("YourApp.Metrics");
         builder.AddOtlpExporter(o =>
         {
-            o.Endpoint = new Uri("http://localhost:4318"); // OTLP HTTP endpoint
+            o.Endpoint = new Uri("http://localhost:4317"); // OTLP gRPC endpoint (default)
         });
     });
 ```
@@ -228,27 +246,14 @@ Configure in `appsettings.json`:
 
 ### 3. Tracing (Tempo)
 
-Configure your service to send traces to Tempo. Tempo supports Jaeger, Zipkin, and OTLP protocols. For example, with OpenTelemetry and Jaeger exporter:
-
-```csharp
-services.AddOpenTelemetryTracing(builder =>
-{
-    builder.AddJaegerExporter(o =>
-    {
-        o.AgentHost = "localhost"; // Use localhost for local development
-        o.AgentPort = 6831;        // Jaeger UDP port
-    });
-});
-```
-
-Or for OTLP:
+Configure your service to send traces to Tempo. For .NET and most SDKs, use OTLP/gRPC (4317):
 
 ```csharp
 services.AddOpenTelemetryTracing(builder =>
 {
     builder.AddOtlpExporter(o =>
     {
-        o.Endpoint = new Uri("http://localhost:4318"); // OTLP HTTP endpoint
+        o.Endpoint = new Uri("http://localhost:4317"); // OTLP gRPC endpoint (default)
     });
 });
 ```
@@ -264,7 +269,7 @@ services.AddOpenTelemetry()
         builder.AddMeter("YourApp.Metrics");
         builder.AddOtlpExporter(o =>
         {
-            o.Endpoint = new Uri("http://localhost:4318");
+            o.Endpoint = new Uri("http://localhost:4317");
         });
     })
     .WithTracing(builder =>
@@ -273,14 +278,14 @@ services.AddOpenTelemetry()
         builder.AddHttpClientInstrumentation();
         builder.AddOtlpExporter(o =>
         {
-            o.Endpoint = new Uri("http://localhost:4318");
+            o.Endpoint = new Uri("http://localhost:4317");
         });
     })
     .WithLogging(builder =>
     {
         builder.AddOtlpExporter(o =>
         {
-            o.Endpoint = new Uri("http://localhost:4318");
+            o.Endpoint = new Uri("http://localhost:4317");
         });
     });
 ```
@@ -541,3 +546,8 @@ This monitoring stack is designed with developer experience as the primary focus
 - **OTLP Support**: Modern OpenTelemetry Protocol for metrics and traces
 - **Hybrid Architecture**: Mimir for metrics, Loki for logs, Tempo for traces
 - **Complete Observability**: Metrics, logs, and traces in one stack
+
+# OTLP Endpoints
+
+- OTLP/gRPC: `localhost:4317` (default for most SDKs, including .NET)
+- OTLP/HTTP: `localhost:4318` (if explicitly configured for HTTP)
