@@ -107,6 +107,7 @@ The following Docker volumes are created for data persistence:
   - Mimir for metrics (via OTLP)
   - Loki for logs
   - Tempo for traces
+- **Traces Drilldown Functionality**: Built-in feature enabled for trace-to-logs and trace-to-metrics correlation
 
 ### Grafana Mimir (Port 9009)
 
@@ -153,6 +154,36 @@ The following Docker volumes are created for data persistence:
   - Password: YourStrong@Passw0rd (default)
 - Configurable via MSSQL_SA_PASSWORD environment variable
 - Includes all SQL Server 2022 features for local development
+
+## Traces Drilldown Functionality
+
+The Traces Drilldown functionality is built into Grafana and enables seamless correlation between traces, logs, and metrics. This feature allows you to:
+
+### Features
+- **Trace-to-Logs Correlation**: Click on any span in a trace to view related logs from the same time period
+- **Trace-to-Metrics Correlation**: View metrics associated with specific traces and spans
+- **Cross-Datasource Navigation**: Seamlessly navigate between Tempo (traces), Loki (logs), and Mimir (metrics)
+- **Contextual Investigation**: Investigate issues by following the data flow across all observability pillars
+
+### Configuration
+The functionality is automatically enabled and configured with:
+- **Feature Toggles**: `tracesToLogs` and `tracesToMetrics` enabled in Grafana configuration
+- **Datasource Correlation**: Pre-configured correlations between Tempo, Loki, and Mimir
+- **Dashboard Integration**: Sample traces dashboard with drilldown capabilities
+
+### Usage
+1. Navigate to the "Traces Overview with Drilldown" dashboard
+2. Click on any trace or span to open the trace view
+3. Use the drilldown buttons to:
+   - View related logs in Loki
+   - View related metrics in Mimir
+   - Navigate to other traces with similar characteristics
+
+### Datasource Correlations
+The following correlations are pre-configured:
+- **Tempo → Loki**: Maps trace tags to log queries
+- **Tempo → Mimir**: Maps trace tags to metric queries
+- **Bidirectional Navigation**: Navigate back and forth between all datasources
 
 ## Common Tasks
 

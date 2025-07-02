@@ -63,6 +63,12 @@ function Show-Resources {
     docker stats --no-stream
 }
 
+# Function to verify traces drilldown functionality
+function Verify-TracesDrilldown {
+    Write-Host "Verifying Traces Drilldown Functionality..."
+    & .\scripts\verify-traces-drilldown.ps1
+}
+
 # Function to show help
 function Show-Help {
     Write-Host "DX Tools - Developer Experience Helper Script for PowerShell"
@@ -73,6 +79,7 @@ function Show-Help {
     Write-Host "  logs [service]      Show logs for all services or specific service"
     Write-Host "  restart [service]   Restart all services or specific service"
     Write-Host "  resources           Show resource usage for all services"
+    Write-Host "  verify-traces       Verify Traces Drilldown functionality"
     Write-Host "  help                Show this help message"
     Write-Host ""
     Write-Host "Available services: loki, mimir, otel-collector, grafana, tempo, db"
@@ -100,6 +107,9 @@ switch ($command) {
     }
     "resources" {
         Show-Resources
+    }
+    "verify-traces" {
+        Verify-TracesDrilldown
     }
     "help" {
         Show-Help

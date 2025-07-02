@@ -119,7 +119,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
       - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
-      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards,traces,explore,correlations,dataConnections,queryLibrary,alerting,unifiedAlerting
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards,traces,explore,correlations,dataConnections,queryLibrary,alerting,unifiedAlerting,tracesToLogs,tracesToMetrics
     ports:
       - "3000:3000"
     networks:

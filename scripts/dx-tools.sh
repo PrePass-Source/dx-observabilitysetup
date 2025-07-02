@@ -58,6 +58,12 @@ resources() {
     docker stats --no-stream
 }
 
+# Function to verify traces drilldown functionality
+verify_traces_drilldown() {
+    echo "Verifying Traces Drilldown Functionality..."
+    ./scripts/verify-traces-drilldown.sh
+}
+
 # Function to show help
 show_help() {
     echo "DX Tools - Developer Experience Helper Script"
@@ -68,6 +74,7 @@ show_help() {
     echo "  logs [service]      Show logs for all services or specific service"
     echo "  restart [service]   Restart all services or specific service"
     echo "  resources           Show resource usage for all services"
+    echo "  verify-traces       Verify Traces Drilldown functionality"
     echo "  help                Show this help message"
     echo ""
     echo "Available services: loki, mimir, otel-collector, grafana, tempo, db"
@@ -86,6 +93,9 @@ case "$1" in
         ;;
     "resources")
         resources
+        ;;
+    "verify-traces")
+        verify_traces_drilldown
         ;;
     "help"|"")
         show_help
